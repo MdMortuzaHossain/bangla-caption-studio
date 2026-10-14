@@ -79,7 +79,7 @@ function workerCall(payload){
  return new Promise((resolve,reject)=>{if(workerJob){reject(new Error('AI ইতিমধ্যে কাজ করছে'));return;}const id=++jobNumber;workerJob={id,resolve,reject};aiWorker.postMessage({id,...payload},payload.audio?[payload.audio.buffer]:[]);});
 }
 
-async function transcribe(){if(busy||!file||!M)return;let input;cancelled=false;captionBusy=true;lock(true);clear();captions=[];$('captions').value='';let completed=0;try{
+async function transcribe(){if(busy||!file||!M)return;let input;cancelled=false;captionBusy=true;lock(true);clear();captions=[];$('captions').value='';$('captionCount').textContent='সাবটাইটেল তৈরি হচ্ছে…';$('retry').hidden=true;let completed=0;try{
  input=new M.Input({source:new M.BlobSource(file),formats:M.ALL_FORMATS});const track=await input.getPrimaryAudioTrack();if(!track||!await track.canDecode())throw Error('অডিও decode করা যাচ্ছে না। MP3 / WAV চেষ্টা করুন।');duration=await track.computeDuration();if(!(duration>0&&duration<=8*3600))throw Error('অডিও সর্বোচ্চ ৮ ঘণ্টার হতে হবে।');updateEstimate();
  say('AI মডেল লোড হচ্ছে… প্রথমবার ডাউনলোডে সময় লাগবে।');progress(0,'মডেল');await workerCall({type:'load',model:$('model').value});check();
  const sink=new M.AudioBufferSink(track),RATE=16000,CHUNK=60*RATE;let samples=new Float32Array(CHUNK),used=0,sampleCount=0,sourceTime=0;
@@ -94,7 +94,7 @@ async function transcribe(){if(busy||!file||!M)return;let input;cancelled=false;
  for await(const {buffer} of sink.buffers()){check();const channels=Array.from({length:buffer.numberOfChannels},(_,i)=>buffer.getChannelData(i)),end=sourceTime+buffer.duration;while(sampleCount/RATE<end){const p=(sampleCount/RATE-sourceTime)*buffer.sampleRate,i=Math.max(0,Math.min(buffer.length-1,Math.floor(p))),f=Math.max(0,p-i);let v=0;for(const channel of channels)v+=(channel[i]*(1-f)+channel[Math.min(i+1,buffer.length-1)]*f)/channels.length;samples[used++]=v;sampleCount++;if(used===CHUNK)await sendChunk();}sourceTime=end;check();await yieldUI();}
  await sendChunk();if(!captions.length)throw Error('কথা শনাক্ত হয়নি। SRT নিজে যোগ করতে পারেন।');captions.sort((a,b)=>a.start-b.start);for(let i=1;i<captions.length;i++)captions[i-1].end=Math.min(captions[i-1].end,captions[i].start);captions=captions.filter(c=>c.end>c.start);refreshCaptions();progress(100,'সাবটাইটেল প্রস্তুত');say('সাবটাইটেল প্রস্তুত। বানান দেখে নিতে পারেন।');
  }catch(e){say(cancelled?'বাতিল হয়েছে। তৈরি হওয়া অংশ SRT হিসেবে রাখা আছে।':'স্থানীয় AI চালানো যায়নি: '+e.message+'। ইন্টারনেট পরীক্ষা করুন অথবা Tiny মডেল চেষ্টা করুন।');if(captions.length)refreshCaptions();return;
- }finally{input?.dispose();requestController=null;captionBusy=false;$('cancel').disabled=false;lock(false);}
+ }finally{input?.dispose();requestController=null;captionBusy=false;$('cancel').disabled=false;lock(false);$('retry').hidden=!captions.length;$('captionCount').textContent=captions.length+'টি সাবটাইটেল';}
  if($('autoExport').checked&&!cancelled)await build();
 }
 $('transcribe').onclick=transcribe;
