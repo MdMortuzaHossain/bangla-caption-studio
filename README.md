@@ -1,32 +1,23 @@
-# বাংলা Caption Studio
+# বাংলা Caption Studio — local AI
 
-Live app: https://mdmortuzahossain.github.io/bangla-caption-studio/
+Live: https://mdmortuzahossain.github.io/bangla-caption-studio/
 
-Turn audio into a waveform video with Bengali subtitles burned into the bottom of each frame. Separate from the existing waveform application.
+Audio to video with editable Bengali subtitles. No API key or per-audio API charge. Audio stays in the browser.
 
 ## Use
 
-1. Open in current desktop Chrome/Edge and select audio.
-2. Enter your own OpenAI API key in the app, select Bengali, then generate subtitles. API billing applies and audio is sent directly to OpenAI.
-3. Automatic video export is enabled by default. Uncheck it to review captions first.
-4. Correct text/timing in the SRT editor and apply it. Regenerate video without another transcription charge. SRT import/export works without a key.
-5. Customize captions, nine waveform styles, backgrounds, resolution, FPS, compression and MP4/WebM format.
+Select Base (default), Small (larger/slower), or Tiny (lighter, more Bengali mistakes possible). Choose audio and language, then generate subtitles. The first run downloads the model from Hugging Face; downloads can be large. Browser cache may retain it, but cache eviction requires another download. Automatic video export is enabled by default; disable it to review first. Edit/apply SRT and regenerate video without repeating transcription. MP4/WebM, SRT downloads, all waveform/background/color/compression controls remain.
 
-## Implementation
+## Runtime
 
-Single static HTML; GitHub Pages main/root. Pinned Mediabunny 1.61.4 handles audio decoding and WebCodecs export. Noto Sans Bengali renders captions. OpenAI whisper-1 returns word/segment timestamps. Audio is resampled to mono 16 kHz WAV and sent sequentially in two-minute chunks (~3.84 MB each). Timestamp offsets are restored and words grouped into short captions. Chunk boundaries may split words; review generated captions. Silent chunks are skipped.
+GitHub Pages serves index.html and transcriber.js. A dedicated Worker runs Transformers.js 3.8.1 with quantized multilingual Xenova Whisper models. CPU/WASM with one thread works without cross-origin isolation; WebGPU is not enabled in this version. Cancellation terminates the Worker and preserves completed captions. Later runs reload from available cache.
 
-Processing is not real-time playback. Speed/accuracy depend on device, network, speech and API. No exact speed/size guarantee. Final output is buffered in RAM. Inputs limited to 500 MiB/eight hours; device memory may impose lower limits. Start with 360p/12 FPS/Small for long audio.
+Streaming audio is resampled to mono 16 kHz and processed in one-minute batches. Whisper uses 30-second windows and five-second strides internally. Word timestamps are offset and grouped into captions. Batch boundaries may split words. Silence is skipped; music/noise may produce invented text. Review the output. No speed or accuracy guarantee, especially for 50-minute recordings. Keep the tab open.
 
-## Key handling
-
-Personal bring-your-own-key client, not a public service using the owner's key. Keys are entered at runtime, sent only to api.openai.com, and never intentionally persisted or committed. Browser extensions/page scripts can access runtime keys: use a restricted project key and spend limits, then clear it after use. Never put a shared key in this code. A multi-user service needs an authenticated backend for credentials/billing controls. Cancel aborts the browser request; processed API usage may still be billed. Transcribing again can incur another charge. Partial captions remain available after failure/cancellation.
+Mediabunny 1.61.4 encodes video locally. Noto Sans Bengali loads from Google Fonts. Network is used for libraries/fonts/models, not audio upload. Output is buffered in RAM. Inputs limited to 500 MiB/eight hours; device memory can impose lower limits.
 
 ## Verification
 
-- Bengali SRT round-trip, timestamp boundaries, invalid times, WAV length and chunk offsets tested.
-- Mocked API test: 121-second fixture, two bounded requests, Bengali model/language/timestamp fields, offsets and cleanup.
-- Browser: real 12-second MP4 export with manually supplied Bengali captions; 640x360 and readable burned-in text.
-- Live paid transcription was not tested because no API key was provided.
+Syntax, Bengali SRT round-trip, timestamp boundaries and chunk offsets passed. Real browser: Tiny download and inference completed on a 12-second tone fixture, returning timestamps. This checks runtime integration, not speech accuracy. The retained export engine previously produced a real 12-second MP4 with manually supplied Bengali captions. Bengali speech accuracy and Base/Small performance have not been benchmarked.
 
-API documentation: https://developers.openai.com/api/docs/guides/speech-to-text
+Docs: https://huggingface.co/docs/transformers.js/ and https://huggingface.co/Xenova/whisper-base
